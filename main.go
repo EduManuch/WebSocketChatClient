@@ -27,7 +27,7 @@ type WsMessage struct {
 	Host      string `json:"host"`
 }
 
-var addrFlag = flag.String("a", "localhost:8443;localhost:8444", "enter addresses devided by \";\"")
+var addrFlag = flag.String("a", "localhost:8443;localhost:8444", "enter addresses separated by \";\"")
 var connNumber = flag.Int("c", 25, "number of connections per host")
 var addrList []string
 
@@ -113,7 +113,7 @@ func sendMessages(ctx context.Context, conn *websocket.Conn) error {
 			if err != nil {
 				return err
 			}
-			err = conn.WriteMessage(websocket.TextMessage, []byte(msgByte))
+			err = conn.WriteMessage(websocket.TextMessage, msgByte)
 			if err != nil {
 				return err
 			}
