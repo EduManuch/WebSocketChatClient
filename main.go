@@ -28,6 +28,7 @@ type WsMessage struct {
 }
 
 var addrFlag = flag.String("a", "localhost:8443;localhost:8444", "enter addresses devided by \";\"")
+var connNumber = flag.Int("c", 25, "number of connections per host")
 var addrList []string
 
 func main() {
@@ -56,18 +57,22 @@ func main() {
 		headers.Set("Origin", "https://"+addr)
 		log.Infof("connecting to %s", u.String())
 
-		conn, resp, err := dialer.Dial(u.String(), headers)
-		if err != nil {
-			if resp != nil {
-				log.Errorf("response: %s", resp.Status)
+		for i := 0; i < *connNumber; i++ {
+			conn, resp, err := dialer.Dial(u.String(), headers)
+			if err != nil {
+				if resp != nil {
+					log.Errorf("response: %s", resp.Status)
+				}
+				log.Fatal("dial error:", err)
 			}
-			log.Fatal("dial error:", err)
-		}
 
-		g.Go(func() error {
-			defer conn.Close()
-			return sendMessages(gCtx, conn)
-		})
+			time.Sleep(time.Millisecond * 500)
+			g.Go(func() error {
+				//log.Println(i, u.String())
+				defer conn.Close()
+				return sendMessages(gCtx, conn)
+			})
+		}
 	}
 
 	if err := g.Wait(); err != nil {
@@ -87,14 +92,13 @@ func sendMessages(ctx context.Context, conn *websocket.Conn) error {
 	if err != nil {
 		return err
 	}
-	log.Info("start sending ,messages")
+	log.Info("start sending, messages")
 
 	for {
 		select {
 		case <-ctx.Done():
-			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
-				// log.Errorf("writing message err: %v", err)
 				return err
 			}
 			return errors.New("websocket client stopped")
