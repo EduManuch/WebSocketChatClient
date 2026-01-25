@@ -27,7 +27,7 @@ type WsMessage struct {
 	Host      string `json:"host"`
 }
 
-var addrFlag = flag.String("a", "localhost:8443;localhost:8444", "enter addresses separated by \";\"")
+var addrFlag = flag.String("h", "localhost:8443;localhost:8444", "enter addresses separated by \";\"")
 var connNumber = flag.Int("c", 25, "number of connections per host")
 var addrList []string
 
