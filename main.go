@@ -52,9 +52,11 @@ func main() {
 	}()
 
 	for _, addr := range addrList {
-		u := url.URL{Scheme: "wss", Host: addr, Path: "/ws"}
+		u := url.URL{Scheme: "ws", Host: addr, Path: "/ws"}
+		// u := url.URL{Scheme: "wss", Host: addr, Path: "/ws"}
 		headers := http.Header{}
-		headers.Set("Origin", "https://"+addr)
+		headers.Set("Origin", "http://"+addr)
+		// headers.Set("Origin", "https://"+addr)
 		log.Infof("connecting to %s", u.String())
 
 		for i := 0; i < *connNumber; i++ {
@@ -127,6 +129,6 @@ func hostIP() (string, error) {
 		return "", err
 	}
 	defer conn.Close()
-
+	log.Info(conn.LocalAddr())
 	return conn.LocalAddr().(*net.UDPAddr).IP.String(), nil
 }
