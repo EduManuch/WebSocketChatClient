@@ -11,12 +11,12 @@ import (
 	"os"
 	"os/signal"
 	"strings"
+	"sync"
 	"syscall"
 	"time"
 
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/sync/errgroup"
 )
 
 type WsMessage struct {
@@ -35,7 +35,7 @@ func main() {
 	addrList = strings.Split(*addrFlag, ";")
 
 	ctx, cancel := context.WithCancel(context.Background())
-	g, gCtx := errgroup.WithContext(ctx)
+	var wg sync.WaitGroup
 
 	ip := hostIP()
 	host, err := os.Hostname()
@@ -72,32 +72,37 @@ func main() {
 				}
 				log.Fatal("dial error:", err)
 			}
-			conn.SetReadDeadline(time.Now().Add(9 * time.Second))
 
+			conn.SetReadDeadline(time.Now().Add(9 * time.Second))
 			conn.SetPongHandler(func(string) error {
 				conn.SetReadDeadline(time.Now().Add(9 * time.Second))
 				return nil
 			})
 
-			g.Go(func() error {
-				defer conn.Close()
-				return sendMessages(gCtx, conn, host, ip)
-			})
+			wg.Add(2) // 1 for writer, 1 for reader
+			go func(c *websocket.Conn) {
+				defer wg.Done()
+				defer c.Close()
+				if err := sendMessages(ctx, c, host, ip); err != nil {
+					log.Errorf("Error sending msg: %v", err)
+				}
+			}(conn)
 
-			go func() {
+			go func(c *websocket.Conn) {
+				defer wg.Done()
+				defer c.Close()
 				for {
-					if _, _, err := conn.ReadMessage(); err != nil {
+					if _, _, err := c.ReadMessage(); err != nil {
 						return
 					}
 				}
-			}()
+			}(conn)
 		}
 	}
 
 	log.Infof("Started %v connections", *connNumber)
-	if err := g.Wait(); err != nil {
-		log.Error(err)
-	}
+	<-ctx.Done()
+	wg.Wait()
 	log.Info("App stopped")
 }
 
