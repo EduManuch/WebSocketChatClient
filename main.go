@@ -61,6 +61,13 @@ func main() {
 
 		for i := 0; i < *connNumber; i++ {
 			conn, resp, err := dialer.Dial(u.String(), headers)
+			if err != nil {
+				if resp != nil {
+					log.Errorf("response: %s", resp.Status)
+				}
+				log.Fatal("dial error:", err)
+			}
+
 			conn.SetPingHandler(func(appData string) error {
 				return conn.WriteControl(
 					websocket.PongMessage,
@@ -69,17 +76,17 @@ func main() {
 				)
 			})
 
-			if err != nil {
-				if resp != nil {
-					log.Errorf("response: %s", resp.Status)
-				}
-				log.Fatal("dial error:", err)
-			}
-
-			time.Sleep(time.Millisecond * 500)
 			g.Go(func() error {
 				defer conn.Close()
 				return sendMessages(gCtx, conn)
+			})
+
+			g.Go(func() error {
+				for {
+					if _, _, err := conn.ReadMessage(); err != nil {
+						return err
+					}
+				}
 			})
 		}
 	}
