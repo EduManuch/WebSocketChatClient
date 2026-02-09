@@ -4,7 +4,6 @@ import (
 	"context"
 	"crypto/tls"
 	"encoding/json"
-	"errors"
 	"flag"
 	"net"
 	"net/http"
@@ -38,6 +37,12 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	g, gCtx := errgroup.WithContext(ctx)
 
+	ip := hostIP()
+	host, err := os.Hostname()
+	if err != nil {
+		log.Error(err)
+	}
+
 	dialer := websocket.Dialer{
 		TLSClientConfig: &tls.Config{
 			InsecureSkipVerify: true,
@@ -68,56 +73,46 @@ func main() {
 				log.Fatal("dial error:", err)
 			}
 
-			conn.SetPingHandler(func(appData string) error {
-				return conn.WriteControl(
-					websocket.PongMessage,
-					[]byte(appData),
-					time.Now().Add(time.Second),
-				)
+			conn.SetPongHandler(func(string) error {
+				conn.SetReadDeadline(time.Now().Add(9 * time.Second))
+				return nil
 			})
 
 			g.Go(func() error {
 				defer conn.Close()
-				return sendMessages(gCtx, conn)
+				return sendMessages(gCtx, conn, host, ip)
 			})
 
-			g.Go(func() error {
+			go func() {
 				for {
 					if _, _, err := conn.ReadMessage(); err != nil {
-						return err
+						return
 					}
 				}
-			})
+			}()
 		}
 	}
 
 	if err := g.Wait(); err != nil {
 		log.Error(err)
 	}
+	log.Info("App stopped")
 }
 
-func sendMessages(ctx context.Context, conn *websocket.Conn) error {
+func sendMessages(ctx context.Context, conn *websocket.Conn, host, ip string) error {
 	ticker := time.NewTicker(time.Millisecond * 500)
 	defer ticker.Stop()
+	conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 
-	host, err := os.Hostname()
-	if err != nil {
-		return err
-	}
-	ip, err := hostIP()
-	if err != nil {
-		return err
-	}
 	log.Info("start sending, messages")
-
 	for {
 		select {
 		case <-ctx.Done():
-			err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
 				return err
 			}
-			return errors.New("websocket client stopped")
+			return nil
 		case t := <-ticker.C:
 			msg := WsMessage{
 				IPAddress: ip,
@@ -137,12 +132,13 @@ func sendMessages(ctx context.Context, conn *websocket.Conn) error {
 	}
 }
 
-func hostIP() (string, error) {
+func hostIP() string {
 	conn, err := net.Dial("udp", "8.8.8.8:80")
 	if err != nil {
-		return "", err
+		log.Error(err)
+		return ""
 	}
 	defer conn.Close()
 	log.Info(conn.LocalAddr())
-	return conn.LocalAddr().(*net.UDPAddr).IP.String(), nil
+	return conn.LocalAddr().(*net.UDPAddr).IP.String()
 }
