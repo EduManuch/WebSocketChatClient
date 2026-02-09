@@ -100,7 +100,7 @@ func main() {
 		}
 	}
 
-	log.Infof("Started %v connections", *connNumber)
+	log.Infof("Started %v connections", *connNumber*len(addrList))
 	<-ctx.Done()
 	wg.Wait()
 	log.Info("App stopped")
