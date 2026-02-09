@@ -72,6 +72,7 @@ func main() {
 				}
 				log.Fatal("dial error:", err)
 			}
+			conn.SetReadDeadline(time.Now().Add(9 * time.Second))
 
 			conn.SetPongHandler(func(string) error {
 				conn.SetReadDeadline(time.Now().Add(9 * time.Second))
@@ -102,18 +103,19 @@ func main() {
 func sendMessages(ctx context.Context, conn *websocket.Conn, host, ip string) error {
 	ticker := time.NewTicker(time.Millisecond * 500)
 	defer ticker.Stop()
-	conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 
 	log.Info("start sending, messages")
 	for {
 		select {
 		case <-ctx.Done():
+			conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 			err := conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 			if err != nil {
 				return err
 			}
 			return nil
 		case t := <-ticker.C:
+			conn.SetWriteDeadline(time.Now().Add(5 * time.Second))
 			msg := WsMessage{
 				IPAddress: ip,
 				Message:   t.String() + "Hello",
