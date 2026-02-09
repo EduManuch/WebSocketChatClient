@@ -94,6 +94,7 @@ func main() {
 		}
 	}
 
+	log.Infof("Started %v connections", *connNumber)
 	if err := g.Wait(); err != nil {
 		log.Error(err)
 	}
@@ -104,7 +105,6 @@ func sendMessages(ctx context.Context, conn *websocket.Conn, host, ip string) er
 	ticker := time.NewTicker(time.Millisecond * 500)
 	defer ticker.Stop()
 
-	log.Info("start sending, messages")
 	for {
 		select {
 		case <-ctx.Done():
