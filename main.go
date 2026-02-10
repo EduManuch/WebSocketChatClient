@@ -74,10 +74,6 @@ func main() {
 			}
 
 			conn.SetReadDeadline(time.Now().Add(9 * time.Second))
-			// conn.SetPongHandler(func(string) error {
-			// 	conn.SetReadDeadline(time.Now().Add(9 * time.Second))
-			// 	return nil
-			// })
 			conn.SetPingHandler(func(appData string) error {
 				conn.SetReadDeadline(time.Now().Add(9 * time.Second)) // обновляем read deadline
 				return conn.WriteControl(websocket.PongMessage, []byte(appData), time.Now().Add(1*time.Second))
